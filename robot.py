@@ -36,12 +36,32 @@ class Robot:
         :return:
         """
         rospy.loginfo('we movin')
-        to_move=goal.pose.position.x
+        to_move_x = goal.pose.position.x
+        to_move_y = goal.pose.position.y
+        disp_x = to_move_x-self.px
+        disp_y = to_move_y-self.py
+        total_dist = math.sqrt(math.pow(disp_x, 2)+math.pow(disp_y,2))
+        # if disp_x<0:
+        #     total_dist=-total_dist # make the distance negative
+        init_rotation = math.atan2(disp_y, disp_x)
+
+        # get the robot in position to move
+        self.rotate(init_rotation)
+        # actually move
+        rospy.loginfo("actually moving straight")
+        self.drive_straight(.5, total_dist)
+        # do the last rotation
         quat = goal.pose.orientation
         q = [quat.x, quat.y, quat.z, quat.w]
         roll, pitch, to_rotate = euler_from_quaternion(q)
         self.rotate(to_rotate)
-        self.drive_straight(.5, to_move)
+        # rospy.loginfo('the setpoint is x: {} y: {}'.format())
+        # to_move=goal.pose.position.x
+        # quat = goal.pose.orientation
+        # q = [quat.x, quat.y, quat.z, quat.w]
+        # roll, pitch, to_rotate = euler_from_quaternion(q)
+        # self.rotate(to_rotate)
+        # self.drive_straight(.5, to_move)
         # now = rospy.Time.now()
         # self._odom_list.waitForTransform('base_link', 'odom', now, rospy.Duration(1))
         # transGoal = self._odom_list.transformPose('base_link', goal)
@@ -61,23 +81,23 @@ class Robot:
         :param distance: distance to drive
         :return:
         """
-
+        rospy.loginfo("my x position is {}".format(self.px))
         self.vel_msg.linear.y = 0
         self.vel_msg.linear.z = 0
-        rospy.loginfo("the delta distance is {}".format(self.px))
-
-        while (distance-self.px) > .01:  # this will track the change in distance and
-                                                  # and move it forward
+        total_travel=math.sqrt(math.pow(self.px, 2)+math.pow(self.py,2))
+        #while math.fabs(target-self.px) > .1 or  math.fabs(target-self.px) < -.1:  # this will track the change in distance and
+        while math.fabs(total_travel/distance) < 1:                                        # and move it forward
             self.vel_msg.linear.x = speed
             self.vel_pub.publish(self.vel_msg)
+            total_travel = math.sqrt(math.pow(self.px, 2) + math.pow(self.py, 2))
             rospy.loginfo("running drive straight")
-            rospy.loginfo("my x position is {} and rotation {}".format(self.px, self.zRot))
-
-        while (distance-self.px) < .01:
-            self.vel_msg.linear.x = -speed
-            self.vel_pub.publish(self.vel_msg)
-            rospy.loginfo("running drive straight")
-            rospy.loginfo("my x position is {} and rotation {}".format(self.px, self.zRot))
+            rospy.loginfo("my x position is {} target is {}".format(self.py, total_travel))
+        # while (distance-self.px) < .01:
+        #     travel_dist = math.sqrt(math.pow(self.px, 2) + math.pow(self.py, 2))
+        #     self.vel_msg.linear.x = speed
+        #     self.vel_pub.publish(self.vel_msg)
+        #     rospy.loginfo("running drive back")
+        #     rospy.loginfo("my x position is {} target is {}".format(self.px, distance-self.px))
 
         self.vel_msg.linear.x = 0
         self.vel_pub.publish(self.vel_msg)
