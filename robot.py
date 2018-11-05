@@ -10,7 +10,6 @@ from geometry_msgs.msg import Quaternion
 import tf
 from tf.transformations import euler_from_quaternion
 
-
 class Robot:
     px = 0
     py = 0
@@ -25,7 +24,7 @@ class Robot:
         """
         rospy.loginfo('hello')
         sub = rospy.Subscriber("/odom", Odometry, self.odom_callback)
-        goalSub = rospy.Subscriber("/move_base_simple/goal", PoseStamped, self.nav_to_pose)
+        goalSub = rospy.Subscriber("/move_base/goal", PoseStamped, self.nav_to_pose)
 
     def nav_to_pose(self, goal):
         # type: (PoseStamped) -> None
@@ -40,7 +39,7 @@ class Robot:
         to_move_y = goal.pose.position.y
         disp_x = to_move_x-self.px
         disp_y = to_move_y-self.py
-        total_dist = math.sqrt(math.pow(disp_x, 2)+math.pow(disp_y,2))
+        total_dist = math.sqrt(math.pow(disp_x, 2)+math.pow(disp_y, 2))
         # if disp_x<0:
         #     total_dist=-total_dist # make the distance negative
         init_rotation = math.atan2(disp_y, disp_x)
@@ -48,7 +47,7 @@ class Robot:
         # get the robot in position to move
         self.rotate(init_rotation)
         # actually move
-        rospy.loginfo("actually moving straight")
+        rospy.loginfo("actually moving straight for {}".format(total_dist))
         self.drive_straight(.5, total_dist)
         # do the last rotation
         quat = goal.pose.orientation
@@ -81,23 +80,19 @@ class Robot:
         :param distance: distance to drive
         :return:
         """
-        rospy.loginfo("my x position is {}".format(self.px))
+
+        drive_rate = rospy.Rate(10)  # 10hz
         self.vel_msg.linear.y = 0
         self.vel_msg.linear.z = 0
-        total_travel=math.sqrt(math.pow(self.px, 2)+math.pow(self.py,2))
-        #while math.fabs(target-self.px) > .1 or  math.fabs(target-self.px) < -.1:  # this will track the change in distance and
-        while math.fabs(total_travel/distance) < 1:                                        # and move it forward
+        start_px = self.px
+        start_py = self.py
+        dist_traveled=math.sqrt(math.pow(start_px-self.px, 2) + math.pow(start_py-self.py, 2))
+
+        while dist_traveled < distance:  # and move it forward
+            dist_traveled = math.sqrt(math.pow(start_px - self.px, 2) + math.pow(start_py - self.py, 2))
             self.vel_msg.linear.x = speed
             self.vel_pub.publish(self.vel_msg)
-            total_travel = math.sqrt(math.pow(self.px, 2) + math.pow(self.py, 2))
-            rospy.loginfo("running drive straight")
-            rospy.loginfo("my x position is {} target is {}".format(self.py, total_travel))
-        # while (distance-self.px) < .01:
-        #     travel_dist = math.sqrt(math.pow(self.px, 2) + math.pow(self.py, 2))
-        #     self.vel_msg.linear.x = speed
-        #     self.vel_pub.publish(self.vel_msg)
-        #     rospy.loginfo("running drive back")
-        #     rospy.loginfo("my x position is {} target is {}".format(self.px, distance-self.px))
+            drive_rate.sleep()
 
         self.vel_msg.linear.x = 0
         self.vel_pub.publish(self.vel_msg)
@@ -114,12 +109,12 @@ class Robot:
         while (self.zRot-angle) > .01:
             self.vel_msg.angular.z = -1
             self.vel_pub.publish(self.vel_msg)
-            rospy.loginfo("my roatation is {}".format(self.zRot-angle))
+            #rospy.loginfo("my roatation is {}".format(self.zRot-angle))
 
         while (self.zRot-angle) < -.01:
             self.vel_msg.angular.z = 1
             self.vel_pub.publish(self.vel_msg)
-            rospy.loginfo("my roatation is {}".format(self.zRot-angle))
+            #rospy.loginfo("my roatation is {}".format(self.zRot-angle))
 
         rospy.loginfo("exited loop at {}".format(self.zRot - angle))
         self.vel_msg.angular.z = 0
@@ -137,6 +132,7 @@ class Robot:
         quat = msg.pose.pose.orientation
         q = [quat.x, quat.y, quat.z, quat.w]
         roll, pitch, self.zRot = euler_from_quaternion(q)
+       # rospy.loginfo("-----------------------------")
         # rospy.loginfo("hello from odom")
         # rospy.loginfo("my roll is {}".format(self.px))
 
