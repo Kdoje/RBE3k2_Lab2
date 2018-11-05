@@ -25,6 +25,7 @@ class Robot:
         """
         rospy.loginfo('hello')
         sub = rospy.Subscriber("/odom", Odometry, self.odom_callback)
+        goalSub = rospy.Subscriber("/move_base_simple/goal", PoseStamped, self.nav_to_pose)
 
     def nav_to_pose(self, goal):
         # type: (PoseStamped) -> None
@@ -34,15 +35,22 @@ class Robot:
         :param goal: PoseStamped
         :return:
         """
-        now = rospy.Time.now()
-        self._odom_list.waitForTransform('base_link', 'odom', now, rospy.Duration(1))
-        transGoal = self._odom_list.transformPose('base_link', goal)
-
-        (goal_angle_roll, goal_angle_pitch, goal_angle_yaw) = tf.transformations.euler_from_quaternion(
-            [transGoal.pose.orientation.x,
-             transGoal.pose.orientation.y,
-             transGoal.pose.orientation.z,
-             transGoal.pose.orientation.w])
+        rospy.loginfo('we movin')
+        to_move=goal.pose.position.x
+        quat = goal.pose.orientation
+        q = [quat.x, quat.y, quat.z, quat.w]
+        roll, pitch, to_rotate = euler_from_quaternion(q)
+        self.rotate(to_rotate)
+        self.drive_straight(.5, to_move)
+        # now = rospy.Time.now()
+        # self._odom_list.waitForTransform('base_link', 'odom', now, rospy.Duration(1))
+        # transGoal = self._odom_list.transformPose('base_link', goal)
+        #
+        # (goal_angle_roll, goal_angle_pitch, goal_angle_yaw) = tf.transformations.euler_from_quaternion(
+        #     [transGoal.pose.orientation.x,
+        #      transGoal.pose.orientation.y,
+        #      transGoal.pose.orientation.z,
+        #      transGoal.pose.orientation.w])
 
     def drive_straight(self, speed, distance):
         """
@@ -56,9 +64,6 @@ class Robot:
 
         self.vel_msg.linear.y = 0
         self.vel_msg.linear.z = 0
-        self.vel_msg.angular.x = 0
-        self.vel_msg.angular.y = 0
-        self.vel_msg.angular.z = 0
         rospy.loginfo("the delta distance is {}".format(self.px))
 
         while (distance-self.px) > .01:  # this will track the change in distance and
@@ -83,6 +88,23 @@ class Robot:
         :param angle: angle to rotate
         :return:
         """
+        self.vel_msg.angular.x = 0
+        self.vel_msg.angular.y = 0
+        rospy.loginfo("my roatation is {}".format(self.zRot-angle))
+        while (self.zRot-angle) > .01:
+            self.vel_msg.angular.z = -1
+            self.vel_pub.publish(self.vel_msg)
+            rospy.loginfo("my roatation is {}".format(self.zRot-angle))
+
+        while (self.zRot-angle) < -.01:
+            self.vel_msg.angular.z = 1
+            self.vel_pub.publish(self.vel_msg)
+            rospy.loginfo("my roatation is {}".format(self.zRot-angle))
+
+        rospy.loginfo("exited loop at {}".format(self.zRot - angle))
+        self.vel_msg.angular.z = 0
+        self.vel_pub.publish(self.vel_msg)
+
 
     def odom_callback(self, msg):
         """
@@ -102,7 +124,9 @@ class Robot:
 if __name__ == '__main__':
     rospy.init_node('Robot')
     ne = Robot()
-    ne.drive_straight(.2, 0)
+    # ne.drive_straight(.2, 2)
+    # ne.rotate(-math.pi)
+    # ne.rotate(0)
     while not rospy.is_shutdown():
         rate = rospy.Rate(10)  # 10hz
         rate.sleep()
