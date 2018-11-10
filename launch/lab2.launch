@@ -1,0 +1,5 @@
+<launch>
+  <node pkg="lab2" name="robot" type="robot.py" output="screen" />
+  <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_empty_world.launch"/>
+  <include file="$(find turtlebot3_fake)/launch/empty_fake.launch"/>
+</launch>

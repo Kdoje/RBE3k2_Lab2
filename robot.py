@@ -34,6 +34,8 @@ class Robot:
         :param goal: PoseStamped
         :return:
         """
+        nav_rate = rospy.Rate(5)
+
         rospy.loginfo('we movin')
         to_move_x = goal.pose.position.x
         to_move_y = goal.pose.position.y
@@ -46,14 +48,17 @@ class Robot:
 
         # get the robot in position to move
         self.rotate(init_rotation)
+        nav_rate.sleep()
         # actually move
         rospy.loginfo("actually moving straight for {}".format(total_dist))
         self.drive_straight(.5, total_dist)
+        nav_rate.sleep()
         # do the last rotation
         quat = goal.pose.orientation
         q = [quat.x, quat.y, quat.z, quat.w]
         roll, pitch, to_rotate = euler_from_quaternion(q)
         self.rotate(to_rotate)
+        nav_rate.sleep()
         # rospy.loginfo('the setpoint is x: {} y: {}'.format())
         # to_move=goal.pose.position.x
         # quat = goal.pose.orientation
@@ -82,8 +87,12 @@ class Robot:
         """
 
         drive_rate = rospy.Rate(10)  # 10hz
+        self.vel_msg.angular.x = 0
+        self.vel_msg.angular.y = 0
+        self.vel_msg.angular.z = 0
         self.vel_msg.linear.y = 0
         self.vel_msg.linear.z = 0
+        self.vel_pub.publish(self.vel_msg)
         start_px = self.px
         start_py = self.py
         dist_traveled=math.sqrt(math.pow(start_px-self.px, 2) + math.pow(start_py-self.py, 2))
@@ -103,17 +112,25 @@ class Robot:
         :param angle: angle to rotate
         :return:
         """
+        drive_rate = rospy.Rate(10)
         self.vel_msg.angular.x = 0
         self.vel_msg.angular.y = 0
+        self.vel_msg.angular.z = 0
+        self.vel_msg.linear.x = 0
+        self.vel_msg.linear.y = 0
+        self.vel_msg.linear.z = 0
+        self.vel_pub.publish(self.vel_msg)
         rospy.loginfo("my roatation is {}".format(self.zRot-angle))
-        while (self.zRot-angle) > .01:
-            self.vel_msg.angular.z = -1
+        while self.zRot > angle:
+            self.vel_msg.angular.z = -.6
             self.vel_pub.publish(self.vel_msg)
+            drive_rate.sleep()
             #rospy.loginfo("my roatation is {}".format(self.zRot-angle))
 
-        while (self.zRot-angle) < -.01:
-            self.vel_msg.angular.z = 1
+        while self.zRot < angle:
+            self.vel_msg.angular.z = .6
             self.vel_pub.publish(self.vel_msg)
+            drive_rate.sleep()
             #rospy.loginfo("my roatation is {}".format(self.zRot-angle))
 
         rospy.loginfo("exited loop at {}".format(self.zRot - angle))
